@@ -1,0 +1,34 @@
+defaults:
+  - task: imagenet_resnet18
+  # - task: cifar100
+  - system: ae_ddpm
+  - _self_
+
+# 对task
+device:
+  cuda_visible_devices:  "4"
+  id: 0
+  cuda: cuda:${device.id}
+
+load_system_checkpoint: 
+mode: train
+
+# 添加以下两个设置用于分布式训练
+# num_gpus: 2  # 指定使用的 GPU 数量
+# distributed: true  # 启用分布式训练
+
+seed: 42
+process_title: imagenet_20_40
+
+# task_train:保存当时的训练的config
+# train_ae_ddpm:保存当时的训练的config和aeddpm相关的东西。其中eventxxx文件是给tensorboard使用的。
+output_dir: outputs/resnet18/imagenet_20_40
+# output_dir: outputs/cifar100_conv3_200_group3_70_80
+
+hydra:
+  output_subdir: config
+  run:
+    dir: ${output_dir}
+  sweep:
+    dir: ${output_dir}
+    subdir: ${hydra.job.override_dirname}

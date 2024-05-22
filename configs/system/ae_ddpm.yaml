@@ -1,0 +1,163 @@
+name: ae_ddpm
+
+ae_model:
+  _target_: core.module.modules.encoder.big
+  in_dim: 9216
+  input_noise_factor: 0.001
+  latent_noise_factor: 0.1
+  
+# 用于cond2的ae mdoel，留空为None时，cond2与target和cond1使用同一ae model，ae model用target+cond1+cond2训练，否则ae model只使用target+cond1训练
+ae_model_cond2:
+#   _target_: core.module.modules.encoder.big_cond2
+#   in_dim: 6116
+#   input_noise_factor: 0.001
+#   latent_noise_factor: 0.1
+# ae_model_cond2_ckpt_path: outputs/cifar100_conv3_small_init1_200_cifar4class_ae_model_time2/saved_checkpoints/epoch:120.ckpt
+  
+model:
+  arch:
+    _target_: core.module.wrapper.ema.EMA
+    model:
+      # _target_: core.module.modules.unet.AE_CNN_bottleneck_big
+      # in_channel: 1
+      # in_dim: 12
+      _target_: core.module.modules.unet_attention.unet_attention.UNetModel
+      in_dim: 16
+      in_channels: 112
+      out_channels: 112
+      model_channels: 64   
+      attention_resolutions:
+      - 4
+      - 2
+      - 1
+      num_res_blocks: 1
+      channel_mult:
+      - 1
+      - 2
+      - 4
+      - 4
+      num_heads: 8
+      use_spatial_transformer: true
+      transformer_depth: 1
+      context_dim: 16
+      use_checkpoint: true
+      legacy: False
+
+# map{original:[cond1,cond2]}
+# ae data size = n*3*k
+# ddpm data size = n*k
+datasets:
+  k: 200    # 取每个datatset的前k个
+  batch_size: 32 # 256 #!!!不能小于val_batch_size或test_batch_size，否则attention里面q,k会对不齐   # train_batch_size,如果train_batch_size>ae_data_size，则取ae_data_size
+  val_batch_size: 4 # 4 # 20      # val时生成模型的个数
+  test_batch_size: 4 # 4 # 20    # test时生成模型的个数
+  num_workers: 4
+  # 注意：训练集名称以{class_start}_{class_end}结尾，表示计算acc使用的数据集范围
+  # 只使用train_dataset的70%作为训练，留30%进行val
+  # 训练ae时使用的是三个一起训。但是训练ddpm的时候，有两个要作为条件，所以只有一个是目标。
+  # target命名中的类别不能有一样的
+  train_dataset: {
+    "cifar100_resnet18_2conv1channel_init1_200_cifar0_44" : ["cifar100_resnet18_2conv1channel_init1_200_cifar0_40","cifar100_conv3_small_init1_200_cifar40_44"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar2_46" : ["cifar100_resnet18_2conv1channel_init1_200_cifar2_42","cifar100_conv3_small_init1_200_cifar42_46"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar4_48" : ["cifar100_resnet18_2conv1channel_init1_200_cifar4_44","cifar100_conv3_small_init1_200_cifar44_48"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar6_50" : ["cifar100_resnet18_2conv1channel_init1_200_cifar6_46","cifar100_conv3_small_init1_200_cifar46_50"],
+    
+    # "cifar100_conv3_small_init1_200_cifar20_24" : ["cifar100_conv3_small_init1_200_cifar22_26","cifar100_conv3_small_init1_200_cifar24_28"],
+    # "cifar100_conv3_small_init1_200_cifar26_30" : ["cifar100_conv3_small_init1_200_cifar30_34","cifar100_conv3_small_init1_200_cifar32_36"],
+    # "cifar100_conv3_small_init1_200_cifar34_38" : ["cifar100_conv3_small_init1_200_cifar36_40","cifar100_conv3_small_init1_200_cifar40_44"],
+
+    # "cifar100_resnet18_conv4channels_init1_200_cifar0_20" : ["cifar100_resnet18_conv4channels_init1_200_cifar0_10","cifar100_resnet18_conv4channels_init1_200_cifar10_20"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar10_30" : ["cifar100_resnet18_conv4channels_init1_200_cifar10_20","cifar100_resnet18_conv4channels_init1_200_cifar20_30"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar20_40" : ["cifar100_resnet18_conv4channels_init1_200_cifar20_30","cifar100_resnet18_conv4channels_init1_200_cifar30_40"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar30_50" : ["cifar100_resnet18_conv4channels_init1_200_cifar30_40","cifar100_resnet18_conv4channels_init1_200_cifar40_50"],
+    }
+  val_dataset:  # 留空，默认为train_dataset的30%
+  test_dataset: {    
+    "cifar100_resnet18_2conv1channel_init1_200_cifar50_94" : ["cifar100_resnet18_2conv1channel_init1_200_cifar50_90","cifar100_conv3_small_init1_200_cifar90_94"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar52_96" : ["cifar100_resnet18_2conv1channel_init1_200_cifar52_92","cifar100_conv3_small_init1_200_cifar92_96"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar54_98" : ["cifar100_resnet18_2conv1channel_init1_200_cifar54_94","cifar100_conv3_small_init1_200_cifar94_98"],
+    # "cifar100_resnet18_2conv1channel_init1_200_cifar56_100" : ["cifar100_resnet18_2conv1channel_init1_200_cifar56_96","cifar100_conv3_small_init1_200_cifar96_100"],
+
+    # "cifar100_resnet18_conv4channels_init1_200_cifar50_70" : ["cifar100_resnet18_conv4channels_init1_200_cifar50_60","cifar100_resnet18_conv4channels_init1_200_cifar60_70"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar60_80" : ["cifar100_resnet18_conv4channels_init1_200_cifar60_70","cifar100_resnet18_conv4channels_init1_200_cifar70_80"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar70_90" : ["cifar100_resnet18_conv4channels_init1_200_cifar70_80","cifar100_resnet18_conv4channels_init1_200_cifar80_90"],
+    # "cifar100_resnet18_conv4channels_init1_200_cifar80_100" : ["cifar100_resnet18_conv4channels_init1_200_cifar80_90","cifar100_resnet18_conv4channels_init1_200_cifar90_100"],
+  }
+
+
+beta_schedule:
+  start: 1e-4
+  end: 2e-2
+  schedule: linear
+  n_timestep: 1000
+
+model_mean_type: eps
+model_var_type: fixedlarge
+loss_type: mse
+
+save_every_n_epoch: 1 # 50
+
+train:
+  split_epoch: 1 # 1000 # before split_epoch:train ae, after split_epoch:train ddpm
+#   split_epoch: 5000
+  optimizer:
+    _target_: torch.optim.AdamW
+    lr: 1e-4
+    weight_decay: 2e-6
+
+  ae_optimizer:
+    _target_: torch.optim.AdamW
+    lr: 1e-4
+    weight_decay: 2e-6
+
+  lr_scheduler:
+
+  check_seen_val_every_n_epoch: ${system.train.trainer.check_val_every_n_epoch}
+  test_every_n_epoch: 1 # 50
+
+  trainer:
+    _target_: pytorch_lightning.Trainer
+    _convert_: all
+    max_epochs: 2 # 5000
+    check_val_every_n_epoch: 1 # 50
+    # val_check_interval : 1  # 2000
+    log_every_n_steps: 10
+    limit_val_batches: 1
+    limit_test_batches: 1
+    reload_dataloaders_every_n_epochs: ${system.train.split_epoch}
+    # devices:
+    #   - ${device.id}
+    precision: 32
+    # accelerator: cuda
+    # devices: 2 # -1表示所有
+    # strategy: fsdp
+    # accumulate_grad_batches: 1
+
+    enable_model_summary: true
+
+    callbacks:
+    - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+      monitor: 'mean_g_acc_on_unseen_train_dataset'
+      mode: 'max'
+      save_top_k: 1
+      save_last: true
+      filename: 'ddpm-{epoch}-{best_g_acc:.4f}'
+
+    - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+#       dirpath: ${output_dir}/${system.name}/checkpoints
+      filename: "ae-{epoch}-{ae_rec_acc:.4f}"
+      monitor: 'best_ae_rec_acc_on_unseen_train_dataset'
+      mode: 'max'
+      save_top_k: 1
+      save_last: true
+      verbose: true
+      
+    - _target_: pytorch_lightning.callbacks.TQDMProgressBar
+      refresh_rate: 500
+
+    logger:
+      _target_: pytorch_lightning.loggers.TensorBoardLogger
+      save_dir: ${output_dir}/${system.name}/
+      name: '.'
+      version: '.'
+

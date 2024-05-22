@@ -1,0 +1,54 @@
+name: classification
+
+data:
+  data_root: data/cifar100
+  dataset: cifar100
+  # 如果这里尝试生成任意选定子集的参数，它的label会保持原样（如50-60）。但是分类的label会根据num_classes来分，所以会报错
+  # 在vision_dataset中修改load train_datasetd的方法，把labels重新映射回[0, num_classes - 1]
+  # 如果刚好是使用[0, 19]类的话，那刚好不会冲突
+  classes_used_to_train: 40-50  # 格式：0-10 或者 all. 0-9, 10-19, 0-19
+  batch_size: 32
+  num_workers: 8
+  # task_trainning：用来确定现在在哪个滑动窗口下训练，方便标签的设定。
+  group_used_to_train: 30-50
+  # group_used_to_test: 50-70
+
+# model for data
+model:
+  _target_: models.ConvNet3  # models.ConvNet3_small    models.ConvNet3 models.resnet.ResNet18
+  num_classes: 20
+# 部分融合时，设置为cond1模型的ckpt，默认将除train_layer的前channel个通道外的参数固定不更新，不用时留空
+# model_ckpt_path: param_data/test/data.pt
+model_ckpt_path:
+
+# optimizer for training task model
+optimizer:
+  _target_: torch.optim.SGD
+  # lr: 0.1
+  lr: 0.05
+  momentum: 0.9
+  weight_decay: 0.0005
+
+# lr scheduler for training task optimizer
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.MultiStepLR
+  milestones: [60, 120, 160, 200]
+  gamma: 0.2
+
+# all_epoch: 200
+random_seed_num: 1  # 随机种子数, seed分别设置为0,1,...,random_seed_num-1
+each_seed_save_num: 1 # 每个随机种子采样的次数
+# start_save_epoch: 100
+# train_layer: ["layer1.0.conv1.weight", "layer1.0.conv2.weight", "layer1.1.conv1.weight", "layer1.1.conv2.weight"]
+# train_layer: ['linear.weight'] # ["layer4.1.conv2.weight"]
+train_layer: all
+
+channels: all # 20 # 只用train_layer中每层（默认为卷积层）的前n个channel，用整层时设为all
+
+# parameter data root
+param:
+  #                                    注意是下划线10_20       
+  data_root: param_data/cifar100_test/data.pt
+  k: 200
+  num_workers: 4
+
